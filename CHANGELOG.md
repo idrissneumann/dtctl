@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Bumped Go toolchain to 1.26.3 and `golang.org/x/net` to v0.53.0** — fixes four `govulncheck` findings affecting `main`: [GO-2026-4982](https://pkg.go.dev/vuln/GO-2026-4982) and [GO-2026-4980](https://pkg.go.dev/vuln/GO-2026-4980) (XSS via `html/template` escaper bypass, reachable from the OAuth callback server), [GO-2026-4971](https://pkg.go.dev/vuln/GO-2026-4971) (panic in `net.Dial`/`LookupPort` on Windows for inputs containing a NUL byte, reachable from the OAuth flow and keyring init), and [GO-2026-4918](https://pkg.go.dev/vuln/GO-2026-4918) (HTTP/2 transport infinite loop on a malformed `SETTINGS_MAX_FRAME_SIZE`, reachable from any HTTPS client request); CI `go-version` pinned to `1.26.3` across `build.yml`, `lint.yml`, `release.yml`, `security.yml`, `test.yml`
+
 ### Fixed
 - **`--mine` filter no longer crashes on platform tokens** — `dtctl get dashboards --mine` (and `get documents`/`get workflows --mine`) failed with `failed to parse JWT claims: invalid character '#' looking for beginning of value` when the configured token was a Dynatrace platform token (`dt0s16.*`) and `/platform/metadata/v1/user` returned 403; the JWT fallback in `Client.CurrentUserID` blindly base64-decoded the middle segment of the platform token, which is not a JWT payload, producing the misleading parse error; `ExtractUserIDFromToken` now rejects platform tokens up front, and `CurrentUserID` returns an actionable message pointing at the missing `app-engine:apps:run` scope; fixes [#210](https://github.com/dynatrace-oss/dtctl/issues/210)
 
