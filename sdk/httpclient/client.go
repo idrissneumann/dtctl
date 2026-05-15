@@ -18,10 +18,11 @@ import (
 
 // Client is an HTTP client for Dynatrace APIs.
 type Client struct {
-	http    *resty.Client
-	baseURL string
-	token   string
-	logger  Logger
+	http            *resty.Client
+	baseURL         string
+	token           string
+	logger          Logger
+	retryConfigured bool
 }
 
 // Option configures a Client.
@@ -38,6 +39,7 @@ func WithToken(token string) Option {
 // WithRetry configures retry behaviour.
 func WithRetry(maxRetries int, waitTime, maxWaitTime time.Duration) Option {
 	return func(c *Client) {
+		c.retryConfigured = true
 		c.http.SetRetryCount(maxRetries)
 		c.http.SetRetryWaitTime(waitTime)
 		c.http.SetRetryMaxWaitTime(maxWaitTime)
@@ -63,10 +65,12 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
-// WithLogger sets the logger for debug output.
+// WithLogger sets the logger for debug output. A nil logger is ignored.
 func WithLogger(l Logger) Option {
 	return func(c *Client) {
-		c.logger = l
+		if l != nil {
+			c.logger = l
+		}
 	}
 }
 
@@ -124,8 +128,8 @@ func New(baseURL string, opts ...Option) (*Client, error) {
 		c.http.SetAuthToken(c.token)
 	}
 
-	// Set defaults if not overridden
-	if c.http.RetryCount == 0 {
+	// Set defaults if not overridden by WithRetry
+	if !c.retryConfigured {
 		c.http.SetRetryCount(3)
 		c.http.SetRetryWaitTime(1 * time.Second)
 		c.http.SetRetryMaxWaitTime(10 * time.Second)
@@ -220,7 +224,7 @@ func (c *Client) EnableVerboseLogging(level int, w io.Writer) {
 	c.http.OnAfterResponse(func(_ *resty.Client, resp *resty.Response) error {
 		var sb strings.Builder
 		sb.WriteString("===> RESPONSE <===\n")
-		sb.WriteString(fmt.Sprintf("STATUS: %d %s\n", resp.StatusCode(), resp.Status()))
+		sb.WriteString(fmt.Sprintf("STATUS: %s\n", resp.Status()))
 		sb.WriteString(fmt.Sprintf("TIME: %s\n", resp.Time()))
 		if level >= 2 {
 			sb.WriteString("HEADERS:\n")
@@ -239,8 +243,6 @@ func (c *Client) EnableVerboseLogging(level int, w io.Writer) {
 }
 
 func readRequestBodyForDebug(req *http.Request) string {
-	defer func() { _ = recover() }()
-
 	if req == nil {
 		return ""
 	}
