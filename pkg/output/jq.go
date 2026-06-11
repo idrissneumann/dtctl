@@ -2,60 +2,36 @@ package output
 
 import (
 	"fmt"
-	"reflect"
 
 	"github.com/itchyny/gojq"
 )
 
-// JQPrinter applies a jq filter before delegating rendering to the wrapped printer.
-// This allows --jq to work consistently across all output formats.
-type JQPrinter struct {
-	base   Printer
-	filter string
-}
-
-// NewJQPrinter wraps base with jq filtering. If filter is empty, base is returned unchanged.
-func NewJQPrinter(base Printer, filter string) Printer {
-	if filter == "" {
-		return base
-	}
-	return &JQPrinter{base: base, filter: filter}
-}
-
-// Print applies the jq filter and renders the result.
-func (p *JQPrinter) Print(obj interface{}) error {
-	filtered, err := applyJQ(p.filter, obj)
-	if err != nil {
-		return err
-	}
-	return printAuto(p.base, filtered)
-}
-
-// PrintList applies the jq filter and renders the result.
-func (p *JQPrinter) PrintList(obj interface{}) error {
-	filtered, err := applyJQ(p.filter, obj)
-	if err != nil {
-		return err
-	}
-	return printAuto(p.base, filtered)
-}
-
-func printAuto(p Printer, data interface{}) error {
-	if isSliceLike(data) {
-		return p.PrintList(data)
-	}
-	return p.Print(data)
-}
-
-func isSliceLike(v interface{}) bool {
-	if v == nil {
+// IsStructuredOutputFormat reports whether a format can represent arbitrary
+// JSON values emitted by jq.
+func IsStructuredOutputFormat(format string) bool {
+	switch format {
+	case "json", "yaml", "yml", "toon":
+		return true
+	default:
 		return false
 	}
-	rv := reflect.ValueOf(v)
-	return rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array
 }
 
-func applyJQ(filter string, input interface{}) (interface{}, error) {
+// NormalizeJQOutputFormat promotes non-structured formats to json when --jq is used.
+func NormalizeJQOutputFormat(format string) string {
+	if IsStructuredOutputFormat(format) {
+		return format
+	}
+	return "json"
+}
+
+// ApplyJQ transforms input using the provided jq filter.
+// If filter is empty, input is returned unchanged.
+func ApplyJQ(filter string, input interface{}) (interface{}, error) {
+	if filter == "" {
+		return input, nil
+	}
+
 	query, err := gojq.Parse(filter)
 	if err != nil {
 		return nil, fmt.Errorf("invalid --jq filter: %w", err)
