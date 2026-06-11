@@ -382,15 +382,13 @@ Examples:
 			// Create printer options for live mode (needed for resize support)
 			printerOpts := output.PrinterOptions{
 				Format:     outputFormat,
+				JQFilter:   jqFilter,
 				Width:      width,
 				Height:     height,
 				Fullscreen: fullscreen,
 			}
 
 			printer := output.NewPrinterWithOpts(printerOpts)
-			if jqFilter != "" {
-				printer = output.NewJQPrinter(printer, jqFilter)
-			}
 			livePrinter := output.NewLivePrinterWithOpts(printer, interval, os.Stdout, printerOpts)
 
 			// Create data fetcher that re-executes the query

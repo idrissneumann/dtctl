@@ -1,62 +1,72 @@
 package output
 
 import (
-	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 )
 
-func TestJQPrinter_JsonFormat(t *testing.T) {
-	var buf bytes.Buffer
-	base := NewPrinterWithWriter("json", &buf)
-	p := NewJQPrinter(base, ".name")
-
+func TestApplyJQ_SingleResult(t *testing.T) {
 	in := map[string]interface{}{"name": "alpha", "id": 42}
-	if err := p.Print(in); err != nil {
-		t.Fatalf("Print failed: %v", err)
+	out, err := ApplyJQ(".name", in)
+	if err != nil {
+		t.Fatalf("ApplyJQ failed: %v", err)
 	}
 
-	out := buf.String()
-	if !strings.Contains(out, "alpha") {
-		t.Fatalf("expected filtered value in output, got: %s", out)
-	}
-	if strings.Contains(out, "id") {
-		t.Fatalf("expected id field to be filtered out, got: %s", out)
+	if out != "alpha" {
+		t.Fatalf("expected filtered value 'alpha', got: %#v", out)
 	}
 }
 
-func TestJQPrinter_TableFormat(t *testing.T) {
-	var buf bytes.Buffer
-	base := NewPrinterWithWriter("table", &buf)
-	p := NewJQPrinter(base, ".[] | {name: .name}")
-
+func TestApplyJQ_MultiResult(t *testing.T) {
 	in := []map[string]interface{}{
 		{"name": "alpha", "id": "1"},
 		{"name": "beta", "id": "2"},
 	}
-	if err := p.PrintList(in); err != nil {
-		t.Fatalf("PrintList failed: %v", err)
+	out, err := ApplyJQ(".[] | {name: .name}", in)
+	if err != nil {
+		t.Fatalf("ApplyJQ failed: %v", err)
 	}
 
-	out := buf.String()
-	if !strings.Contains(out, "NAME") {
-		t.Fatalf("expected NAME header in table output, got: %s", out)
+	want := []interface{}{
+		map[string]interface{}{"name": "alpha"},
+		map[string]interface{}{"name": "beta"},
 	}
-	if strings.Contains(out, "ID") {
-		t.Fatalf("expected ID column to be filtered out, got: %s", out)
+	if !reflect.DeepEqual(out, want) {
+		t.Fatalf("unexpected result:\nwant: %#v\ngot:  %#v", want, out)
 	}
 }
 
-func TestJQPrinter_InvalidFilter(t *testing.T) {
-	var buf bytes.Buffer
-	base := NewPrinterWithWriter("json", &buf)
-	p := NewJQPrinter(base, ".[")
-
-	err := p.Print(map[string]interface{}{"name": "alpha"})
+func TestApplyJQ_InvalidFilter(t *testing.T) {
+	errInput := map[string]interface{}{"name": "alpha"}
+	_, err := ApplyJQ(".[", errInput)
 	if err == nil {
 		t.Fatal("expected invalid jq filter error")
 	}
 	if !strings.Contains(err.Error(), "invalid --jq filter") {
 		t.Fatalf("expected invalid filter error, got: %v", err)
+	}
+}
+
+func TestNormalizeJQOutputFormat(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{in: "json", want: "json"},
+		{in: "yaml", want: "yaml"},
+		{in: "yml", want: "yml"},
+		{in: "toon", want: "toon"},
+		{in: "table", want: "json"},
+		{in: "csv", want: "json"},
+		{in: "", want: "json"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			if got := NormalizeJQOutputFormat(tt.in); got != tt.want {
+				t.Fatalf("NormalizeJQOutputFormat(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
 	}
 }

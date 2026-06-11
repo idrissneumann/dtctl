@@ -19,6 +19,7 @@ type PrinterOptions struct {
 	Format     string
 	Writer     io.Writer
 	PlainMode  bool
+	JQFilter   string
 	Width      int  // Chart width (0 = default)
 	Height     int  // Chart height (0 = default)
 	Fullscreen bool // Use terminal dimensions
@@ -68,13 +69,13 @@ func NewPrinterWithOpts(opts PrinterOptions) Printer {
 
 	switch format {
 	case "json":
-		return &JSONPrinter{writer: writer}
+		return &JSONPrinter{writer: writer, jqFilter: opts.JQFilter}
 	case "yaml", "yml":
-		return &YAMLPrinter{writer: writer}
+		return &YAMLPrinter{writer: writer, jqFilter: opts.JQFilter}
 	case "csv":
 		return &CSVPrinter{writer: writer}
 	case "toon":
-		return &ToonPrinter{writer: writer}
+		return &ToonPrinter{writer: writer, jqFilter: opts.JQFilter}
 	case "chart":
 		if width > 0 || height > 0 {
 			return NewChartPrinterWithSize(writer, width, height)
@@ -113,14 +114,20 @@ func NewPrinterWithOpts(opts PrinterOptions) Printer {
 
 // JSONPrinter prints output as JSON
 type JSONPrinter struct {
-	writer io.Writer
+	writer   io.Writer
+	jqFilter string
 }
 
 // Print prints a single object as JSON
 func (p *JSONPrinter) Print(obj interface{}) error {
+	transformed, err := ApplyJQ(p.jqFilter, obj)
+	if err != nil {
+		return err
+	}
+
 	encoder := json.NewEncoder(p.writer)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(obj)
+	return encoder.Encode(transformed)
 }
 
 // PrintList prints a list of objects as JSON
@@ -130,14 +137,20 @@ func (p *JSONPrinter) PrintList(obj interface{}) error {
 
 // YAMLPrinter prints output as YAML
 type YAMLPrinter struct {
-	writer io.Writer
+	writer   io.Writer
+	jqFilter string
 }
 
 // Print prints a single object as YAML
 func (p *YAMLPrinter) Print(obj interface{}) error {
+	transformed, err := ApplyJQ(p.jqFilter, obj)
+	if err != nil {
+		return err
+	}
+
 	encoder := yaml.NewEncoder(p.writer)
 	encoder.SetIndent(2)
-	return encoder.Encode(obj)
+	return encoder.Encode(transformed)
 }
 
 // PrintList prints a list of objects as YAML
