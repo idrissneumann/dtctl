@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-06-12
+
+### Added
+- **`--jq` filter for structured output** — a global `--jq` flag applies a [jq](https://jqlang.github.io/jq/) expression to command output, so results can be reshaped and extracted without piping to an external `jq` binary (dtctl stays self-sufficient for troubleshooting agents); it is powered by the pure-Go [`gojq`](https://github.com/itchyny/gojq) engine, so no system `jq` is required: `dtctl query 'fetch logs | sort timestamp desc | limit 100' -o yaml --jq '.records[].timestamp'`; the filter operates on the structured `json`, `yaml`, and `toon` formats, and any non-structured format (e.g. `table`, `csv`) is auto-promoted to `json` when `--jq` is supplied; an invalid filter expression fails fast with an `invalid --jq filter` error (surfaced in the agent-mode error envelope as well); closes [#272](https://github.com/dynatrace-oss/dtctl/issues/272), fixes [#271](https://github.com/dynatrace-oss/dtctl/pull/271)
+
 ## [0.29.0] - 2026-06-11
 
 ### Added
@@ -520,6 +525,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Updated Go version to 1.24.13 in security workflow
 
+[0.30.0]: https://github.com/dynatrace-oss/dtctl/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/dynatrace-oss/dtctl/compare/v0.28.1...v0.29.0
 [0.28.1]: https://github.com/dynatrace-oss/dtctl/compare/v0.28.0...v0.28.1
 [0.28.0]: https://github.com/dynatrace-oss/dtctl/compare/v0.27.1...v0.28.0
